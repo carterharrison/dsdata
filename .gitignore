@@ -1,0 +1,7 @@
+/vendor
+/dist
+chef
+.DS_Store
+.idea
+/temp
+./chef
