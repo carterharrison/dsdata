@@ -1,6 +1,8 @@
 package main
 
 import (
+	"encoding/json"
+	"fmt"
 	"os"
 )
 
@@ -21,21 +23,22 @@ func main () {
 		//fmt.Println("---------------------------")
 		sheet := r.Next()
 
-		//fmt.Println("-----")
+		fmt.Println("-----")
 		for _, v := range sheet.OldSurveyControl {
 			m[v.Item]++
 		}
 
+
 		//if len(sheet.Accuracy.Network) > 0 {
-		//	res, err := json.Marshal(sheet)
-		//
-		//	if err != nil {
-		//		panic(err)
-		//	}
-		//
-		//	fmt.Println(string(res))
+			res, err := json.Marshal(sheet)
+
+			if err != nil {
+				panic(err)
+			}
+
+			fmt.Println(string(res))
 		//}
-		//
+
 
 
 	}

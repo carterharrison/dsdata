@@ -33,6 +33,27 @@ type DataSheet struct {
 	SurveyOrthometricHeights []SurveyOrthometricHeight `json:"surveyOrthometricHeight"`
 
 	Monumentation map[string]string `json:"monumentation"`
+
+	History []History `json:"history"`
+
+	StationDescription []StationDescription `json:"stationDescription"`
+
+	StationRecoveries []StationRecovery `json:"stationRecoveries"`
+}
+
+type StationDescription struct {
+	Description string `json:"description"`
+}
+
+type StationRecovery struct {
+	Date string `json:"date"`
+	Description string `json:"description"`
+}
+
+type History struct {
+	Date string `json:"date"`
+	Condition string `json:"condition"`
+	By string `json:"by"`
 }
 
 type SurveyOrthometricHeight struct {
@@ -130,6 +151,9 @@ func (datasheet *DataSheet) Init () {
 	datasheet.SurveyEllipsoidHeights = make([]SurveyEllipsoidHeight, 0)
 	datasheet.SurveyOrthometricHeights = make([]SurveyOrthometricHeight, 0)
 	datasheet.Monumentation = make(map[string]string)
+	datasheet.History = make([]History, 0)
+	datasheet.StationDescription = make([]StationDescription, 0)
+	datasheet.StationRecoveries = make([]StationRecovery, 0)
 
 	acc := Accuracy{}
 	acc.Init()

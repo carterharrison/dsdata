@@ -1,13 +1,13 @@
 package main
 
 import (
-	"fmt"
 	"strconv"
 	"strings"
 )
 
 // spec at https://www.ngs.noaa.gov/DATASHEET/dsdata.pdf
 
+// sections
 var (
 	basicMetadataSection = 0
 	currentSurveyControlSection = 1
@@ -47,57 +47,21 @@ func (page *Page) AddLine (line string) {
 		page.ReadId(line)
 	}
 
-	defer func () {
-		page.LineNum++
-	}()
-
-
 	// we give the current line to the correct parser
-
-	if page.CurrentSection == basicMetadataSection {
-		page.BasicMetadataSection(line)
-		return
+	switch page.CurrentSection {
+	case basicMetadataSection: page.BasicMetadataSection(line)
+	case currentSurveyControlSection: page.CurrentSurveyControlSection(line)
+	case accuracySection: page.AccuracySection(line)
+	case dataDeterminationMethodologySection: page.DataDeterminationMethodologySection(line)
+	case projectionsSection: page.ProjectionsSection(line)
+	case azimuthMarksSection: page.AzimuthMarksSection(line)
+	case supersededSurveyControlSection: page.SupersededSurveyControlSection(line)
+	case monumentationSection: page.MonumentationSection(line)
+	case historySection: page.HistorySection(line)
+	case descriptionAndRecoverySection: page.DescriptionAndRecoverySection(line)
 	}
 
-	if page.CurrentSection == currentSurveyControlSection {
-		page.CurrentSurveyControlSection(line)
-		return
-	}
-
-	if page.CurrentSection == accuracySection {
-		page.AccuracySection(line)
-		return
-	}
-
-	if page.CurrentSection == dataDeterminationMethodologySection {
-		page.DataDeterminationMethodologySection(line)
-		return
-	}
-
-	if page.CurrentSection == projectionsSection {
-		page.ProjectionsSection(line)
-		return
-	}
-
-	if page.CurrentSection == azimuthMarksSection {
-		page.AzimuthMarksSection(line)
-		return
-	}
-
-	if page.CurrentSection == supersededSurveyControlSection {
-		page.SupersededSurveyControlSection(line)
-		return
-	}
-
-	if page.CurrentSection == monumentationSection {
-		page.MonumentationSection(line)
-		return
-	}
-
-	if page.CurrentSection == historySection {
-		page.HistorySection(line)
-		return
-	}
+	page.LineNum++
 }
 
 func (page *Page) Make () DataSheet {
@@ -516,11 +480,128 @@ func (page *Page) MonumentationSection (line string) {
 
 	// todo looks at + for appending to it
 	page.CurrentSheet.Monumentation[parts[0]] = trimWhiteSpace(parts[1])
-	fmt.Println(line)
 }
 
 func (page *Page) HistorySection (line string) {
 
+	// if line is long enough, check for next sections header
+	if len(line) > 51 {
+
+		// this is the header of the next section
+		if line[33:52] == "STATION DESCRIPTION" {
+			page.CurrentSection = descriptionAndRecoverySection
+			page.DescriptionAndRecoverySection(line)
+			return
+		}
+	}
+
+	if len(line) < 24 {
+		return
+	}
+
+	// make sure this is an history line
+	if line[9:16] != "HISTORY" {
+		return
+	}
+
+	// ignore the header line
+	if line[23:] == "Date     Condition        Report By" {
+		return
+	}
+
+	// we are on the history row
+	date := trimWhiteSpace(line[23:31])
+	condition := trimWhiteSpace(line[32:min(49, len(line) - 1)])
+	by := ""
+
+	if len(line) >= 50 {
+		by = line[49:]
+	}
+
+	history := History{
+		Date: date,
+		Condition: condition,
+		By: by,
+	}
+
+	page.CurrentSheet.History = append(page.CurrentSheet.History, history)
+}
+
+// last section, still alive
+func (page *Page) DescriptionAndRecoverySection (line string)  {
+
+	// if line is long enough for heading
+	if len(line) > 33 {
+		content := line[33:]
+		// if header is desc
+		if content == "STATION DESCRIPTION" {
+			page.CurrentBuffer = "STATION DESCRIPTION"
+
+			desc := StationDescription{
+				Description: "",
+			}
+
+			page.CurrentSheet.StationDescription = append(page.CurrentSheet.StationDescription, desc)
+			return
+		}
+
+		if len(content) > 17 {
+			// if header is recovery
+			if content[:16] == "STATION RECOVERY" {
+				page.CurrentBuffer = "STATION RECOVERY"
+
+				date := getInnerParValue(content)
+				
+				rec := StationRecovery{
+					Date: date,
+					Description: "",
+				}
+
+				page.CurrentSheet.StationRecoveries = append(page.CurrentSheet.StationRecoveries, rec)
+				return
+			}
+		}
+	}
+
+	// make sure line can have some content
+	if len(line) < 10 {
+		return
+	}
+
+	// make sure line has text
+	if line[7:8] != "'" {
+		return
+	}
+
+	if page.CurrentBuffer == "STATION DESCRIPTION" && len(page.CurrentSheet.StationDescription) > 0 {
+		lastIndex := len(page.CurrentSheet.StationDescription) - 1
+		lastDesc := page.CurrentSheet.StationDescription[lastIndex].Description
+		newDesc := line[8:]
+		sep := " "
+
+		if lastDesc == "" {
+			sep = ""
+		}
+
+		page.CurrentSheet.StationDescription[lastIndex].Description = lastDesc + sep + newDesc
+
+		return
+	}
+
+	if page.CurrentBuffer == "STATION RECOVERY" && len(page.CurrentSheet.StationRecoveries) > 0 {
+		lastIndex := len(page.CurrentSheet.StationRecoveries) - 1
+		lastDesc := page.CurrentSheet.StationRecoveries[lastIndex].Description
+		newDesc := line[8:]
+		sep := " "
+
+		if lastDesc == "" {
+			sep = ""
+		}
+
+		page.CurrentSheet.StationRecoveries[lastIndex].Description = lastDesc + sep + newDesc
+
+		return
+	}
 }
 
 // see if line is grid spatial address
@@ -699,3 +780,10 @@ func getInnerParValue (s string) string {
 	return val
 }
 
+func min (x int, y int) int {
+	if x < y {
+		return x
+	}
+
+	return y
+}
