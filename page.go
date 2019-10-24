@@ -19,9 +19,8 @@ var (
 	monumentationSection = 7
 	historySection = 8
 	descriptionAndRecoverySection = 9
-	headers = make(map[string]string)
 )
-
+;
 type Page struct {
 	CurrentSheet DataSheet
 	CurrentSection int
