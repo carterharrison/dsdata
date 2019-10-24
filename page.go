@@ -19,6 +19,24 @@ var (
 	monumentationSection = 7
 	historySection = 8
 	descriptionAndRecoverySection = 9
+
+	networkKey = "NETWORK"
+	horzOrderKey = "HORZ ORDER"
+	ellpOrderKey = "ELLP ORDER"
+	vertOrderKey = "VERT ORDER"
+	surveyControlHeader = "SUPERSEDED SURVEY CONTROL"
+	pidKey = "PID"
+	surveyControlEndA = ".See file dsdata.pdf to determine how the superseded data were derived."
+	surveyControlEndB = ".No superseded survey control is available for this station."
+	ellipHKey = "ELLIP H"
+	orthometricHeightKey = "NAVD"
+	historyKey = "HISTORY"
+	stationDescriptionHeader = "STATION DESCRIPTION"
+	stationRevoveryHeader = "STATION RECOVERY"
+	historyHeader = "Date     Condition        Report By"
+	accuracyHeader = "North         East    Units  Estimated Accuracy"
+	statePlaneHeader = "North         East     Units Scale Factor Converg."
+	spatialAddressKey = "U.S. NATIONAL GRID SPATIAL ADDRESS"
 )
 
 type Page struct {
@@ -188,7 +206,7 @@ func (page *Page) AccuracySection (line string) {
 	}
 
 	// check for the network key
-	isNetwork := line[9:16] == "NETWORK"
+	isNetwork := line[9:16] == networkKey
 
 	// this is a network line
 	if isNetwork {
@@ -217,9 +235,9 @@ func (page *Page) AccuracySection (line string) {
 	val := trimWhiteSpace(valParts[1][1:])
 
 	switch key {
-	case "HORZ ORDER": page.CurrentSheet.Accuracy.HorzOrder = append(page.CurrentSheet.Accuracy.HorzOrder, val)
-	case "ELLP ORDER": page.CurrentSheet.Accuracy.EllpOrder = append(page.CurrentSheet.Accuracy.EllpOrder, val)
-	case "VERT ORDER": page.CurrentSheet.Accuracy.VertOrder = append(page.CurrentSheet.Accuracy.VertOrder, val)
+	case horzOrderKey: page.CurrentSheet.Accuracy.HorzOrder = append(page.CurrentSheet.Accuracy.HorzOrder, val)
+	case ellpOrderKey: page.CurrentSheet.Accuracy.EllpOrder = append(page.CurrentSheet.Accuracy.EllpOrder, val)
+	case vertOrderKey: page.CurrentSheet.Accuracy.VertOrder = append(page.CurrentSheet.Accuracy.VertOrder, val)
 	}
 }
 
@@ -257,7 +275,7 @@ func (page *Page) ProjectionsSection (line string) {
 
 	if len(line) == 58 {
 		// if header survey line is present, move to next section
-		if line[33:] == "SUPERSEDED SURVEY CONTROL" {
+		if line[33:] == surveyControlHeader {
 			page.CurrentSection = azimuthMarksSection
 			page.AzimuthMarksSection(line)
 			return
@@ -285,7 +303,7 @@ func (page *Page) AzimuthMarksSection (line string) {
 
 	// check for header of next section
 	if len(line) > 40 {
-		if line[33:] == "SUPERSEDED SURVEY CONTROL" {
+		if line[33:] == surveyControlHeader {
 			page.CurrentSection = supersededSurveyControlSection
 			page.SupersededSurveyControlSection(line)
 			return
@@ -319,7 +337,7 @@ func (page *Page) AzimuthMarksSection (line string) {
 	}
 
 	// check for reference object table row
-	if string(line[7]) == "|" && string(line[8]) == " " && line[9:12] != "PID" && string(line[9]) != " " {
+	if string(line[7]) == "|" && string(line[8]) == " " && line[9:12] != pidKey && string(line[9]) != " " {
 		pid := line[9:15]
 		name := trimWhiteSpace(line[16:52])
 		distance := trimWhiteSpace(line[52:67])
@@ -343,8 +361,7 @@ func (page *Page) SupersededSurveyControlSection (line string) {
 	}
 
 	// check for end of section to move onto next section
-	if line[7:] == ".See file dsdata.pdf to determine how the superseded data were derived." ||
-		line[7:] == ".No superseded survey control is available for this station." {
+	if line[7:] == surveyControlEndA || line[7:] == surveyControlEndB {
 		page.CurrentSection = monumentationSection
 		page.MonumentationSection(line)
 		return
@@ -384,7 +401,7 @@ func (page *Page) SupersededSurveyControlSection (line string) {
 	}
 
 	// check for Ellipsoid Height
-	if line[9:16] == "ELLIP H" {
+	if line[9:16] == ellipHKey {
 		date := line[18:26]
 		height := getNumbersFromString(line[30:36])
 
@@ -411,7 +428,7 @@ func (page *Page) SupersededSurveyControlSection (line string) {
 	}
 
 	// check for Orthometric Height
-	if line[9:13] == "NAVD" {
+	if line[9:13] == orthometricHeightKey {
 		date := trimWhiteSpace(line[18:26])
 		numbers := getNumbersFromString(line[29:37])
 
@@ -453,7 +470,7 @@ func (page *Page) MonumentationSection (line string) {
 
 	// check for history section and move on
 	if len(line) > 17 {
-		if line[9:16] == "HISTORY" {
+		if line[9:16] == historyKey {
 			page.CurrentSection = historySection
 			page.HistorySection(line)
 			return
@@ -488,7 +505,7 @@ func (page *Page) HistorySection (line string) {
 	if len(line) > 51 {
 
 		// this is the header of the next section
-		if line[33:52] == "STATION DESCRIPTION" {
+		if line[33:52] == stationDescriptionHeader {
 			page.CurrentSection = descriptionAndRecoverySection
 			page.DescriptionAndRecoverySection(line)
 			return
@@ -500,12 +517,12 @@ func (page *Page) HistorySection (line string) {
 	}
 
 	// make sure this is an history line
-	if line[9:16] != "HISTORY" {
+	if line[9:16] != historyKey {
 		return
 	}
 
 	// ignore the header line
-	if line[23:] == "Date     Condition        Report By" {
+	if line[23:] == historyHeader {
 		return
 	}
 
@@ -534,8 +551,8 @@ func (page *Page) DescriptionAndRecoverySection (line string)  {
 	if len(line) > 33 {
 		content := line[33:]
 		// if header is desc
-		if content == "STATION DESCRIPTION" {
-			page.CurrentBuffer = "STATION DESCRIPTION"
+		if content == stationDescriptionHeader {
+			page.CurrentBuffer = stationDescriptionHeader
 
 			desc := StationDescription{
 				Description: "",
@@ -547,8 +564,8 @@ func (page *Page) DescriptionAndRecoverySection (line string)  {
 
 		if len(content) > 17 {
 			// if header is recovery
-			if content[:16] == "STATION RECOVERY" {
-				page.CurrentBuffer = "STATION RECOVERY"
+			if content[:16] == stationRevoveryHeader {
+				page.CurrentBuffer = stationRevoveryHeader
 
 				date := getInnerParValue(content)
 				
@@ -573,7 +590,7 @@ func (page *Page) DescriptionAndRecoverySection (line string)  {
 		return
 	}
 
-	if page.CurrentBuffer == "STATION DESCRIPTION" && len(page.CurrentSheet.StationDescription) > 0 {
+	if page.CurrentBuffer == stationDescriptionHeader && len(page.CurrentSheet.StationDescription) > 0 {
 		lastIndex := len(page.CurrentSheet.StationDescription) - 1
 		lastDesc := page.CurrentSheet.StationDescription[lastIndex].Description
 		newDesc := line[8:]
@@ -588,7 +605,7 @@ func (page *Page) DescriptionAndRecoverySection (line string)  {
 		return
 	}
 
-	if page.CurrentBuffer == "STATION RECOVERY" && len(page.CurrentSheet.StationRecoveries) > 0 {
+	if page.CurrentBuffer == stationRevoveryHeader && len(page.CurrentSheet.StationRecoveries) > 0 {
 		lastIndex := len(page.CurrentSheet.StationRecoveries) - 1
 		lastDesc := page.CurrentSheet.StationRecoveries[lastIndex].Description
 		newDesc := line[8:]
@@ -607,7 +624,7 @@ func (page *Page) DescriptionAndRecoverySection (line string)  {
 // see if line is grid spatial address
 func (page *Page) checkSpatialAddress (line string) bool {
 	if len(line) > 45 {
-		if line[8:42] == "U.S. NATIONAL GRID SPATIAL ADDRESS" {
+		if line[8:42] == spatialAddressKey {
 			address := line[44:]
 			page.CurrentSheet.SpatialAddress = address
 			return true
@@ -621,7 +638,7 @@ func (page *Page) statePlaneCoordinates (line string) {
 	// check for header
 	if string(line[8]) == " " {
 		page.CurrentBuffer = line[28:]
-	} else if page.CurrentBuffer == "North         East     Units Scale Factor Converg." {
+	} else if page.CurrentBuffer == statePlaneHeader {
 		nums := getNumbersFromString(line[19:])
 
 		// todo handle * number
@@ -642,7 +659,7 @@ func (page *Page) statePlaneCoordinates (line string) {
 		}
 
 		page.CurrentSheet.StatePlaneCoordinates = append(page.CurrentSheet.StatePlaneCoordinates, coords)
-	} else if page.CurrentBuffer == "North         East    Units  Estimated Accuracy" {
+	} else if page.CurrentBuffer == accuracyHeader {
 		// then parse "EW5045;SPC CA 5     -   615,560.    1,886,710.      MT  (+/- 180 meters Scaled)"
 
 		unit := getProjectionUnit(line)
@@ -739,7 +756,7 @@ func keyIsAccuracy (line string) bool {
 
 	// check to see if key is one the the accuracy keys
 	key := trimWhiteSpace(line[9:25])
-	return key == "HORZ ORDER" || key == "ELLP ORDER" || key == "VERT ORDER" || key == "NETWORK"
+	return key == horzOrderKey || key == ellpOrderKey|| key == vertOrderKey || key == networkKey
 }
 
 // gets rid of the whitespace on the end
@@ -775,7 +792,6 @@ func getInnerParValue (s string) string {
 			val = val + char
 		}
 	}
-
 
 	return val
 }
