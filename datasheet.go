@@ -25,12 +25,43 @@ type DataSheet struct {
 	PrimaryAzimuthMarks []PrimaryAzimuthMark `json:"primaryAzimuthMark"`
 
 	ReferenceObjects []ReferenceObject `json:"referenceObjects"`
+
+	SurveyLatitudeLongitudes []SurveyLatitudeLongitude `json:"surveyLatitudeLongitudes"`
+
+	SurveyEllipsoidHeights []SurveyEllipsoidHeight `json:"surveyEllipsoidHeight"`
+
+	SurveyOrthometricHeights []SurveyOrthometricHeight `json:"surveyOrthometricHeight"`
+
+	Monumentation map[string]string `json:"monumentation"`
+}
+
+type SurveyOrthometricHeight struct {
+	Date string `json:"date"`
+	Height float64 `json:"height"`
+	Unit string `json:"unit"`
+	Method string `json:"method"`
+	Order []float64 `json:"order"`
+}
+
+type SurveyEllipsoidHeight struct {
+	Date string `json:"date"`
+	Height float64 `json:"height"`
+	Unit string `json:"unit"`
+	Method string `json:"method"`
+	Order string `json:"order"`
+}
+
+
+type SurveyLatitudeLongitude struct {
+	Name string `json:"name"`
+	Pos string `json:"pos"`
+	Body string `json:"body"`
+	Order string `json:"order"`
 }
 
 type PrimaryAzimuthMark struct {
 	Mark string `json:"mark"`
 	GridAz []float64 `json:"gridAz"`
-
 }
 
 type ReferenceObject struct {
@@ -95,7 +126,10 @@ func (datasheet *DataSheet) Init () {
 	datasheet.StatePlaneCoordinates = make([]StatePlaneCoordinates, 0)
 	datasheet.PrimaryAzimuthMarks = make([]PrimaryAzimuthMark, 0)
 	datasheet.ReferenceObjects = make([]ReferenceObject, 0)
-
+	datasheet.SurveyLatitudeLongitudes = make([]SurveyLatitudeLongitude, 0)
+	datasheet.SurveyEllipsoidHeights = make([]SurveyEllipsoidHeight, 0)
+	datasheet.SurveyOrthometricHeights = make([]SurveyOrthometricHeight, 0)
+	datasheet.Monumentation = make(map[string]string)
 
 	acc := Accuracy{}
 	acc.Init()

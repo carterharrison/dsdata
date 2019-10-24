@@ -20,7 +20,7 @@ var (
 	historySection = 8
 	descriptionAndRecoverySection = 9
 )
-;
+
 type Page struct {
 	CurrentSheet DataSheet
 	CurrentSection int
@@ -91,6 +91,11 @@ func (page *Page) AddLine (line string) {
 
 	if page.CurrentSection == monumentationSection {
 		page.MonumentationSection(line)
+		return
+	}
+
+	if page.CurrentSection == historySection {
+		page.HistorySection(line)
 		return
 	}
 }
@@ -385,26 +390,136 @@ func (page *Page) SupersededSurveyControlSection (line string) {
 		return
 	}
 
+	// make sure line is long enough to get the correct information
+	if len(line) < 77 {
+		return
+	}
+
 	// check for Latitude and Longitude
-
 	if string(line[21]) == "-" {
-		//name := line[9:21]
-		//pos := line[24:41]
-		//order := line[76]
+		name := line[9:21]
+		pos := line[24:41]
+		body := line[45:75]
+		order := string(line[76])
 
-		fmt.Println(line)
+		latLng := SurveyLatitudeLongitude{
+			Name: name,
+			Pos: pos,
+			Body: body,
+			Order: order,
+		}
+
+		page.CurrentSheet.SurveyLatitudeLongitudes = append(page.CurrentSheet.SurveyLatitudeLongitudes, latLng)
+		return
+	}
+
+
+	// make sure line is log enough for ellip
+	if len(line) < 79 {
+		return
 	}
 
 	// check for Ellipsoid Height
+	if line[9:16] == "ELLIP H" {
+		date := line[18:26]
+		height := getNumbersFromString(line[30:36])
+
+		// make sure there is exactly one height number in the section we expect
+		if len(height) != 1 {
+			return
+		}
+
+		unit := getInnerParValue(line[37:45])
+		method := line[64:78]
+		order := line[78:79]
+
+		ellipH := SurveyEllipsoidHeight{
+			Date: date,
+			Height: height[0],
+			Unit: unit,
+			Method: method,
+			Order: order,
+		}
+
+		page.CurrentSheet.SurveyEllipsoidHeights = append(page.CurrentSheet.SurveyEllipsoidHeights, ellipH)
+
+		return
+	}
 
 	// check for Orthometric Height
+	if line[9:13] == "NAVD" {
+		date := trimWhiteSpace(line[18:26])
+		numbers := getNumbersFromString(line[29:37])
 
+		// we expect there to be one height measurement used
+		if len(numbers) != 1 {
+			return
+		}
 
-	//fmt.Println(line)
+		unit := getInnerParValue(line[37:43])
+
+		// todo figure out what the model is because sometimes it is feet
+		model := line[43:63]
+		if model[17:18] == "(" {
+
+		}
+
+		method := trimWhiteSpace(line[64:76])
+		orders := getNumbersFromString(line[76:79])
+
+		navdH := SurveyOrthometricHeight{
+			Date: date,
+			Height: numbers[0],
+			Method: method,
+			Order: orders,
+			Unit: unit,
+		}
+
+		page.CurrentSheet.SurveyOrthometricHeights = append(page.CurrentSheet.SurveyOrthometricHeights, navdH)
+
+		return
+	}
 
 }
 
 func (page *Page) MonumentationSection (line string) {
+	if len(line) < 8 {
+		return
+	}
+
+	// check for history section and move on
+	if len(line) > 17 {
+		if line[9:16] == "HISTORY" {
+			page.CurrentSection = historySection
+			page.HistorySection(line)
+			return
+		}
+	}
+
+	// grab everything after the pid
+	content := line[7:]
+
+	if len(content) < 1 {
+		return
+	}
+
+	if content[0:1] == "." {
+		return
+	}
+
+	// extract key values after the pid, separated by :
+	parts := strings.Split(content, ":")
+
+	if len(parts) != 2 {
+		return
+	}
+
+	// todo looks at + for appending to it
+	page.CurrentSheet.Monumentation[parts[0]] = trimWhiteSpace(parts[1])
+	fmt.Println(line)
+}
+
+func (page *Page) HistorySection (line string) {
 
 }
 
@@ -562,3 +677,25 @@ func trimWhiteSpace (s string) string {
 
 	return n
 }
+
+// (abcdef) => abcdef
+func getInnerParValue (s string) string {
+	isStarted := false
+	val := ""
+
+	for _, c := range s {
+		char := string(c)
+
+		if char == "(" && !isStarted {
+			isStarted = true
+		} else if char == ")" && isStarted {
+			break
+		} else if isStarted {
+			val = val + char
+		}
+	}
+
+
+	return val
+}
+
