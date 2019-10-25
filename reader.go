@@ -50,7 +50,7 @@ func (reader *Reader) Next () DataSheet {
 		}
 	}
 
-	return DataSheet{}
+	return reader.Page.Make()
 }
 
 func lineIsNewData (s string) bool {
